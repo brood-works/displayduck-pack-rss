@@ -1,0 +1,11 @@
+{
+  "scripts": {
+    "build": "displayduck-compile-pack --pack-dir .",
+    "development": "displayduck-compile-pack --pack-dir . --watch"
+  },
+  "devDependencies": {
+    "@displayduck/base": "^0.1.0",
+    "@displayduck/compiler": "^0.1.0"
+  },
+  "main": "./dist/rss.js"
+}

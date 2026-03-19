@@ -1,0 +1,47 @@
+{
+  "icon": "fas fa-rss",
+  "name": "RSS Feed",
+  "description": "Display entries from an RSS feed.",
+  "assets": [],
+  "version": "1.0.0",
+  "widgets": [
+    {
+      "category": "feed",
+      "id": "rss",
+      "icon": "fas fa-rss",
+      "name": "RSS Feed",
+      "description": "Display entries from an RSS feed.",
+      "platform": "all",
+      "minWidth": 200,
+      "minHeight": 300,
+      "config": {
+        "url": {
+          "label": "Feed URL",
+          "type": "string",
+          "defaultValue": ""
+        },
+        "refreshInterval": {
+          "label": "Refresh Interval (minutes)",
+          "type": "number",
+          "defaultValue": 5,
+          "subLabel": "Set to 0 to disable auto-refresh"
+        },
+        "maxItems": {
+          "label": "Max Items",
+          "type": "number",
+          "defaultValue": 5,
+          "min": 1,
+          "max": 5,
+          "subLabel": "Maximum number of feed entries to display, between 1 and 5"
+        },
+        "skipItems": {
+          "label": "Skip Items",
+          "type": "number",
+          "defaultValue": 0,
+          "min": 0,
+          "subLabel": "Number of items to skip from the start of the feed"
+        }
+      }
+    }
+  ]
+}
