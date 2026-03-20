@@ -22,8 +22,8 @@ export class DisplayDuckWidget {
   public readonly feedEntries: Signal<FeedEntry[]>;
   public readonly errorMessage: Signal<string | null>;
   public readonly fetching: Signal<boolean>;
-  public readonly showBorder: Signal<boolean> = signal(false);
-  public readonly alignment: Signal<'left' | 'right'> = signal('left');
+  public readonly shadows: Signal<boolean> = signal(false);
+  public readonly alignment: Signal<string> = signal('left');
 
   private readonly feedEntriesState = signal<FeedEntry[]>([]);
   private readonly errorMessageState = signal<string | null>(null);
@@ -73,8 +73,8 @@ export class DisplayDuckWidget {
     return !this.fetching() && !this.showEntries();
   }
 
-  public textBorderEnabled(): boolean {
-    return this.showBorder();
+  public shadowsEnabled(): boolean {
+    return this.shadows();
   }
 
   public alignmentClass(): string {
@@ -100,10 +100,10 @@ export class DisplayDuckWidget {
     const nextSkipItems = Number.isFinite(parsedSkipItems)
       ? Math.max(0, Math.floor(parsedSkipItems))
       : 0;
-    const nextTextBorder = Boolean(this.getConfig('textBorder', false));
-    const nextAlignment = this.readAlignment(this.getConfig('alignment', 'left'));
+    const nextShadows = Boolean(this.getConfig('shadow', false));
+    const nextAlignment = String(this.getConfig('alignment', 'left'));
 
-    this.showBorder.set(nextTextBorder);
+    this.shadows.set(nextShadows);
     this.alignment.set(nextAlignment);
 
     const changed =

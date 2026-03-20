@@ -88,12 +88,8 @@
     text-align: right;
   }
 
-  .text-border {
-    -webkit-text-stroke: .15em;
-    -webkit-text-stroke-color: rgba(0,0,0,0.75);
-    paint-order: stroke fill;
-    padding-left: .15em;
-    padding-right: .15em;
+  .shadows {
+    filter: drop-shadow(-1px 1px 1px #000000);
   }
 
   .status-view {

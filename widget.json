@@ -3,7 +3,7 @@
   "name": "RSS Feed",
   "description": "Display entries from an RSS feed.",
   "assets": [],
-  "version": "1.0.2",
+  "version": "1.0.3",
   "widgets": [
     {
       "category": "feed",
@@ -41,11 +41,11 @@
           "min": 0,
           "subLabel": "Number of items to skip from the start of the feed"
         },
-        "textBorder": {
-          "label": "Text border",
+        "shadow": {
+          "label": "Shadows",
+          "subLabel": "Adds a subtle shadow to the widget to improve visibility on busy backgrounds.",
           "type": "boolean",
-          "defaultValue": false,
-          "subLabel": "Adds a border to the text to improve readability on busy backgrounds."
+          "defaultValue": false
         },
         "alignment": {
             "label": "Alignment",

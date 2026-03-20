@@ -442,7 +442,7 @@ let DisplayDuckWidget$1 = class DisplayDuckWidget {
     this.effectiveInterval = 0;
     this.effectiveMaxItems = 5;
     this.effectiveSkipItems = 0;
-    this.showBorder = signal(false);
+    this.shadows = signal(false);
     this.alignment = signal("left");
     this.feedEntriesState = signal([]);
     this.errorMessageState = signal(null);
@@ -481,8 +481,8 @@ let DisplayDuckWidget$1 = class DisplayDuckWidget {
   showErrorState() {
     return !this.fetching() && !this.showEntries();
   }
-  textBorderEnabled() {
-    return this.showBorder();
+  shadowsEnabled() {
+    return this.shadows();
   }
   alignmentClass() {
     return `align-${this.alignment()}`;
@@ -499,9 +499,9 @@ let DisplayDuckWidget$1 = class DisplayDuckWidget {
     const nextMaxItems = Number.isFinite(parsedMaxItems) ? Math.max(1, Math.min(5, Math.floor(parsedMaxItems))) : 5;
     const parsedSkipItems = Number(this.getConfig("skipItems", 0));
     const nextSkipItems = Number.isFinite(parsedSkipItems) ? Math.max(0, Math.floor(parsedSkipItems)) : 0;
-    const nextTextBorder = Boolean(this.getConfig("textBorder", false));
-    const nextAlignment = this.readAlignment(this.getConfig("alignment", "left"));
-    this.showBorder.set(nextTextBorder);
+    const nextShadows = Boolean(this.getConfig("shadow", false));
+    const nextAlignment = String(this.getConfig("alignment", "left"));
+    this.shadows.set(nextShadows);
     this.alignment.set(nextAlignment);
     const changed = nextUrl !== this.lastAppliedUrl || nextInterval !== this.lastAppliedInterval || nextMaxItems !== this.lastAppliedMaxItems || nextSkipItems !== this.lastAppliedSkipItems;
     if (!changed) {
@@ -661,8 +661,8 @@ let DisplayDuckWidget$1 = class DisplayDuckWidget {
     return value === "right" ? "right" : "left";
   }
 };
-const template = '<div class="rss {{ feedClass() }} {{ alignmentClass() }}">\n  {{#if showEntries()}}\n    {{#each entries()}}\n      <div class="feed-item">\n        {{#if this.imageUrl}}\n          <div class="image">\n            <img src="{{ this.imageUrl }}" alt="Feed Image">\n          </div>\n        {{/if}}\n        <div class="item {{#if this.imageUrl}}has-image{{/if}}">\n          <div class="title {{#if textBorderEnabled()}}text-border{{/if}}">{{ this.title }}</div>\n        </div>\n      </div>\n    {{/each}}\n  {{/if}}\n\n  {{#if showFetchingState()}}\n    <div class="status-view">\n      <div class="icon spinner">\n        <i class="fas fa-rss"></i>\n      </div>\n      <div class="message">Loading feed...</div>\n    </div>\n  {{/if}}\n\n  {{#if showErrorState()}}\n    <div class="status-view">\n      <div class="icon">\n        <i class="fas fa-rss"></i>\n      </div>\n      <div class="message">{{ errorMessage() }}</div>\n    </div>\n  {{/if}}\n</div>\n';
-const styles = ".rss {\n  display: flex;\n  flex-direction: column;\n  align-items: stretch;\n  justify-content: center;\n  width: 100%;\n  height: 100%;\n  color: var(--color-text);\n  overflow: hidden;\n  font-size: clamp(0.5em, var(--host-width) / 35, 1em);\n}\n.rss.feed-items-1 .feed-item {\n  height: 100%;\n}\n.rss.feed-items-2 .feed-item {\n  height: 50%;\n}\n.rss.feed-items-3 .feed-item {\n  height: 33%;\n}\n.rss.feed-items-4 .feed-item {\n  height: 25%;\n}\n.rss.feed-items-5 .feed-item {\n  height: 20%;\n}\n.rss .feed-item {\n  display: flex;\n  gap: 0.5em;\n  padding: 0.25em;\n  min-height: 0;\n  overflow: hidden;\n}\n.rss.align-right .feed-item {\n  flex-direction: row-reverse;\n}\n.rss .image {\n  --forced-item-width: calc(var(--host-width, 300px) / 5);\n  width: var(--forced-item-width);\n  min-width: var(--forced-item-width);\n  max-width: var(--forced-item-width);\n  border-radius: 0.25em;\n  overflow: hidden;\n  border: max(0.15em, 5px) solid rgba(255, 255, 255, 0.12);\n}\n.rss .image img {\n  width: 100%;\n  height: 100%;\n  object-fit: cover;\n  object-position: center center;\n  display: block;\n}\n.rss .item {\n  flex: 1 1 auto;\n  min-width: 0;\n  display: flex;\n  align-items: center;\n  justify-content: flex-start;\n  overflow: hidden;\n}\n.rss.align-right .item {\n  justify-content: flex-end;\n}\n.rss .title {\n  font-size: clamp(1em, var(--host-width) / 25, 1em);\n  line-height: 1.1em;\n  width: 100%;\n  overflow: hidden;\n  display: -webkit-box;\n  line-clamp: 2;\n  -webkit-line-clamp: 2;\n  -webkit-box-orient: vertical;\n  text-align: left;\n}\n.rss.align-right .title {\n  text-align: right;\n}\n.rss .text-border {\n  -webkit-text-stroke: 0.15em;\n  -webkit-text-stroke-color: rgba(0, 0, 0, 0.75);\n  paint-order: stroke fill;\n  padding-left: 0.15em;\n  padding-right: 0.15em;\n}\n.rss .status-view {\n  display: flex;\n  width: 100%;\n  height: 100%;\n  flex-direction: column;\n  justify-content: center;\n  align-items: center;\n  gap: 0.5em;\n  text-align: center;\n}\n.rss .icon {\n  font-size: clamp(2rem, var(--host-width, 300px) / 8, 4rem);\n  opacity: 0.8;\n}\n.rss .spinner {\n  animation: rss-spin 1.2s linear infinite;\n}\n.rss .message {\n  max-width: 90%;\n  font-size: 1rem;\n  line-height: 1.3;\n}\n\n@keyframes rss-spin {\n  from {\n    transform: rotate(0deg);\n  }\n  to {\n    transform: rotate(360deg);\n  }\n}";
+const template = '<div class="rss {{ feedClass() }} {{ alignmentClass() }}">\n  {{#if showEntries()}}\n    {{#each entries()}}\n      <div class="feed-item">\n        {{#if this.imageUrl}}\n          <div class="image">\n            <img src="{{ this.imageUrl }}" alt="Feed Image">\n          </div>\n        {{/if}}\n        <div class="item {{#if this.imageUrl}}has-image{{/if}}">\n          <div class="title {{#if shadowsEnabled()}}shadows{{/if}}">{{ this.title }}</div>\n        </div>\n      </div>\n    {{/each}}\n  {{/if}}\n\n  {{#if showFetchingState()}}\n    <div class="status-view">\n      <div class="icon spinner">\n        <i class="fas fa-rss"></i>\n      </div>\n      <div class="message">Loading feed...</div>\n    </div>\n  {{/if}}\n\n  {{#if showErrorState()}}\n    <div class="status-view">\n      <div class="icon">\n        <i class="fas fa-rss"></i>\n      </div>\n      <div class="message">{{ errorMessage() }}</div>\n    </div>\n  {{/if}}\n</div>\n';
+const styles = ".rss {\n  display: flex;\n  flex-direction: column;\n  align-items: stretch;\n  justify-content: center;\n  width: 100%;\n  height: 100%;\n  color: var(--color-text);\n  overflow: hidden;\n  font-size: clamp(0.5em, var(--host-width) / 35, 1em);\n}\n.rss.feed-items-1 .feed-item {\n  height: 100%;\n}\n.rss.feed-items-2 .feed-item {\n  height: 50%;\n}\n.rss.feed-items-3 .feed-item {\n  height: 33%;\n}\n.rss.feed-items-4 .feed-item {\n  height: 25%;\n}\n.rss.feed-items-5 .feed-item {\n  height: 20%;\n}\n.rss .feed-item {\n  display: flex;\n  gap: 0.5em;\n  padding: 0.25em;\n  min-height: 0;\n  overflow: hidden;\n}\n.rss.align-right .feed-item {\n  flex-direction: row-reverse;\n}\n.rss .image {\n  --forced-item-width: calc(var(--host-width, 300px) / 5);\n  width: var(--forced-item-width);\n  min-width: var(--forced-item-width);\n  max-width: var(--forced-item-width);\n  border-radius: 0.25em;\n  overflow: hidden;\n  border: max(0.15em, 5px) solid rgba(255, 255, 255, 0.12);\n}\n.rss .image img {\n  width: 100%;\n  height: 100%;\n  object-fit: cover;\n  object-position: center center;\n  display: block;\n}\n.rss .item {\n  flex: 1 1 auto;\n  min-width: 0;\n  display: flex;\n  align-items: center;\n  justify-content: flex-start;\n  overflow: hidden;\n}\n.rss.align-right .item {\n  justify-content: flex-end;\n}\n.rss .title {\n  font-size: clamp(1em, var(--host-width) / 25, 1em);\n  line-height: 1.1em;\n  width: 100%;\n  overflow: hidden;\n  display: -webkit-box;\n  line-clamp: 2;\n  -webkit-line-clamp: 2;\n  -webkit-box-orient: vertical;\n  text-align: left;\n}\n.rss.align-right .title {\n  text-align: right;\n}\n.rss .shadows {\n  filter: drop-shadow(-1px 1px 1px #000000);\n}\n.rss .status-view {\n  display: flex;\n  width: 100%;\n  height: 100%;\n  flex-direction: column;\n  justify-content: center;\n  align-items: center;\n  gap: 0.5em;\n  text-align: center;\n}\n.rss .icon {\n  font-size: clamp(2rem, var(--host-width, 300px) / 8, 4rem);\n  opacity: 0.8;\n}\n.rss .spinner {\n  animation: rss-spin 1.2s linear infinite;\n}\n.rss .message {\n  max-width: 90%;\n  font-size: 1rem;\n  line-height: 1.3;\n}\n\n@keyframes rss-spin {\n  from {\n    transform: rotate(0deg);\n  }\n  to {\n    transform: rotate(360deg);\n  }\n}";
 const DisplayDuckWidget2 = createWidgetClass(DisplayDuckWidget$1, { template, styles });
 const Widget = DisplayDuckWidget2;
 const displayduckPackRss_rss_entry = { DisplayDuckWidget: DisplayDuckWidget2, Widget };
