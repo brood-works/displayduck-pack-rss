@@ -22,6 +22,7 @@ export class DisplayDuckWidget {
   public readonly feedEntries: Signal<FeedEntry[]>;
   public readonly errorMessage: Signal<string | null>;
   public readonly fetching: Signal<boolean>;
+  public readonly showBorder: Signal<boolean> = signal(false);
 
   private readonly feedEntriesState = signal<FeedEntry[]>([]);
   private readonly errorMessageState = signal<string | null>(null);
@@ -71,6 +72,10 @@ export class DisplayDuckWidget {
     return !this.fetching() && !this.showEntries();
   }
 
+  public textBorderEnabled(): boolean {
+    return this.showBorder();
+  }
+
   private getConfig<T>(key: string, fallback: T): T {
     const config = (this.payload as { config?: Record<string, unknown> }).config ?? {};
     return (config[key] as T | undefined) ?? fallback;
@@ -90,6 +95,9 @@ export class DisplayDuckWidget {
     const nextSkipItems = Number.isFinite(parsedSkipItems)
       ? Math.max(0, Math.floor(parsedSkipItems))
       : 0;
+    const nextTextBorder = Boolean(this.getConfig('textBorder', false));
+
+    this.showBorder.set(nextTextBorder);
 
     const changed =
       nextUrl !== this.lastAppliedUrl ||

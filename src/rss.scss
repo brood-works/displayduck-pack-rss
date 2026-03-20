@@ -74,6 +74,14 @@
     -webkit-box-orient: vertical;
   }
 
+  .text-border {
+    -webkit-text-stroke: .15em;
+    -webkit-text-stroke-color: rgba(0,0,0,0.75);
+    paint-order: stroke fill;
+    padding-left: .15em;
+    padding-right: .15em;
+  }
+
   .status-view {
     display: flex;
     width: 100%;
