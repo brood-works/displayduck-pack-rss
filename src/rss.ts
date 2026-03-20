@@ -23,6 +23,7 @@ export class DisplayDuckWidget {
   public readonly errorMessage: Signal<string | null>;
   public readonly fetching: Signal<boolean>;
   public readonly showBorder: Signal<boolean> = signal(false);
+  public readonly alignment: Signal<'left' | 'right'> = signal('left');
 
   private readonly feedEntriesState = signal<FeedEntry[]>([]);
   private readonly errorMessageState = signal<string | null>(null);
@@ -76,6 +77,10 @@ export class DisplayDuckWidget {
     return this.showBorder();
   }
 
+  public alignmentClass(): string {
+    return `align-${this.alignment()}`;
+  }
+
   private getConfig<T>(key: string, fallback: T): T {
     const config = (this.payload as { config?: Record<string, unknown> }).config ?? {};
     return (config[key] as T | undefined) ?? fallback;
@@ -96,8 +101,10 @@ export class DisplayDuckWidget {
       ? Math.max(0, Math.floor(parsedSkipItems))
       : 0;
     const nextTextBorder = Boolean(this.getConfig('textBorder', false));
+    const nextAlignment = this.readAlignment(this.getConfig('alignment', 'left'));
 
     this.showBorder.set(nextTextBorder);
+    this.alignment.set(nextAlignment);
 
     const changed =
       nextUrl !== this.lastAppliedUrl ||
@@ -296,5 +303,9 @@ export class DisplayDuckWidget {
     }
 
     return '';
+  }
+
+  private readAlignment(value: unknown): 'left' | 'right' {
+    return value === 'right' ? 'right' : 'left';
   }
 }

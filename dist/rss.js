@@ -1,475 +1,296 @@
-const expressionCache = /* @__PURE__ */ new Map();
-const escapeHtml = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
-const compileExpression = (expression) => {
-  const cached = expressionCache.get(expression);
-  if (cached) {
-    return cached;
-  }
-  const transformed = expression.replace(/\bthis\b/g, "__item");
-  const fn = new Function("scope", `with (scope) { return (${transformed}); }`);
-  expressionCache.set(expression, fn);
-  return fn;
-};
-const evaluate = (expression, scope) => {
+const v = /* @__PURE__ */ new Map(), D = (s) => String(s ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"), U = (s) => {
+  const t = v.get(s);
+  if (t)
+    return t;
+  const i = s.replace(/\bthis\b/g, "__item"), e = new Function("scope", `with (scope) { return (${i}); }`);
+  return v.set(s, e), e;
+}, p = (s, t) => {
   try {
-    return compileExpression(expression)(scope);
+    return U(s)(t);
   } catch {
     return "";
   }
-};
-const parseNodes = (template2, from = 0, stopAt) => {
-  const nodes = [];
-  let index = from;
-  while (index < template2.length) {
-    const start = template2.indexOf("{{", index);
-    if (start === -1) {
-      nodes.push({ type: "text", value: template2.slice(index) });
-      return { nodes, index: template2.length };
-    }
-    if (start > index) {
-      nodes.push({ type: "text", value: template2.slice(index, start) });
-    }
-    const close = template2.indexOf("}}", start + 2);
-    if (close === -1) {
-      nodes.push({ type: "text", value: template2.slice(start) });
-      return { nodes, index: template2.length };
-    }
-    const token = template2.slice(start + 2, close).trim();
-    index = close + 2;
-    if (token === "/if" || token === "/each") {
-      if (stopAt === token) {
-        return { nodes, index };
-      }
-      nodes.push({ type: "text", value: `{{${token}}}` });
+}, g = (s, t = 0, i) => {
+  const e = [];
+  let r = t;
+  for (; r < s.length; ) {
+    const n = s.indexOf("{{", r);
+    if (n === -1)
+      return e.push({ type: "text", value: s.slice(r) }), { nodes: e, index: s.length };
+    n > r && e.push({ type: "text", value: s.slice(r, n) });
+    const a = s.indexOf("}}", n + 2);
+    if (a === -1)
+      return e.push({ type: "text", value: s.slice(n) }), { nodes: e, index: s.length };
+    const o = s.slice(n + 2, a).trim();
+    if (r = a + 2, o === "/if" || o === "/each") {
+      if (i === o)
+        return { nodes: e, index: r };
+      e.push({ type: "text", value: `{{${o}}}` });
       continue;
     }
-    if (token.startsWith("#if ")) {
-      const child = parseNodes(template2, index, "/if");
-      nodes.push({
+    if (o.startsWith("#if ")) {
+      const c = g(s, r, "/if");
+      e.push({
         type: "if",
-        condition: token.slice(4).trim(),
-        children: child.nodes
-      });
-      index = child.index;
+        condition: o.slice(4).trim(),
+        children: c.nodes
+      }), r = c.index;
       continue;
     }
-    if (token.startsWith("#each ")) {
-      const child = parseNodes(template2, index, "/each");
-      nodes.push({
+    if (o.startsWith("#each ")) {
+      const c = g(s, r, "/each");
+      e.push({
         type: "each",
-        source: token.slice(6).trim(),
-        children: child.nodes
-      });
-      index = child.index;
+        source: o.slice(6).trim(),
+        children: c.nodes
+      }), r = c.index;
       continue;
     }
-    nodes.push({ type: "expr", value: token });
+    e.push({ type: "expr", value: o });
   }
-  return { nodes, index };
-};
-const renderNodes = (nodes, scope) => {
-  let output = "";
-  for (const node of nodes) {
-    if (node.type === "text") {
-      output += node.value;
+  return { nodes: e, index: r };
+}, y = (s, t) => {
+  let i = "";
+  for (const e of s) {
+    if (e.type === "text") {
+      i += e.value;
       continue;
     }
-    if (node.type === "expr") {
-      output += escapeHtml(evaluate(node.value, scope));
+    if (e.type === "expr") {
+      i += D(p(e.value, t));
       continue;
     }
-    if (node.type === "if") {
-      if (Boolean(evaluate(node.condition, scope))) {
-        output += renderNodes(node.children, scope);
+    if (e.type === "if") {
+      p(e.condition, t) && (i += y(e.children, t));
+      continue;
+    }
+    const r = p(e.source, t);
+    if (Array.isArray(r))
+      for (const n of r) {
+        const a = Object.create(t);
+        a.__item = n, i += y(e.children, a);
       }
-      continue;
-    }
-    const items = evaluate(node.source, scope);
-    if (!Array.isArray(items)) {
-      continue;
-    }
-    for (const item of items) {
-      const childScope = Object.create(scope);
-      childScope.__item = item;
-      output += renderNodes(node.children, childScope);
-    }
   }
-  return output;
+  return i;
+}, k = (s) => {
+  const t = g(s).nodes;
+  return (i) => y(t, i);
 };
-const createTemplateRenderer = (template2) => {
-  const parsed = parseNodes(template2).nodes;
-  return (scope) => renderNodes(parsed, scope);
-};
-typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
-  var e = new Error(message);
-  return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
-};
-async function invoke(cmd, args = {}, options) {
-  return window.__TAURI_INTERNALS__.invoke(cmd, args, options);
+async function R(s, t = {}, i) {
+  return window.__TAURI_INTERNALS__.invoke(s, t, i);
 }
-function convertFileSrc(filePath, protocol = "asset") {
-  return window.__TAURI_INTERNALS__.convertFileSrc(filePath, protocol);
+function A(s, t = "asset") {
+  return window.__TAURI_INTERNALS__.convertFileSrc(s, t);
 }
-var TauriEvent;
-(function(TauriEvent2) {
-  TauriEvent2["WINDOW_RESIZED"] = "tauri://resize";
-  TauriEvent2["WINDOW_MOVED"] = "tauri://move";
-  TauriEvent2["WINDOW_CLOSE_REQUESTED"] = "tauri://close-requested";
-  TauriEvent2["WINDOW_DESTROYED"] = "tauri://destroyed";
-  TauriEvent2["WINDOW_FOCUS"] = "tauri://focus";
-  TauriEvent2["WINDOW_BLUR"] = "tauri://blur";
-  TauriEvent2["WINDOW_SCALE_FACTOR_CHANGED"] = "tauri://scale-change";
-  TauriEvent2["WINDOW_THEME_CHANGED"] = "tauri://theme-changed";
-  TauriEvent2["WINDOW_CREATED"] = "tauri://window-created";
-  TauriEvent2["WEBVIEW_CREATED"] = "tauri://webview-created";
-  TauriEvent2["DRAG_ENTER"] = "tauri://drag-enter";
-  TauriEvent2["DRAG_OVER"] = "tauri://drag-over";
-  TauriEvent2["DRAG_DROP"] = "tauri://drag-drop";
-  TauriEvent2["DRAG_LEAVE"] = "tauri://drag-leave";
-})(TauriEvent || (TauriEvent = {}));
-const isSignal = (value) => {
-  if (typeof value !== "function") {
-    return false;
-  }
-  const candidate = value;
-  return candidate._isSignal === true && typeof candidate.set === "function" && typeof candidate.subscribe === "function";
-};
-const signal = (initialValue) => {
-  let current = initialValue;
-  const subscribers = /* @__PURE__ */ new Set();
-  const read = (() => current);
-  read._isSignal = true;
-  read.set = (value) => {
-    current = value;
-    for (const subscriber of subscribers) {
-      subscriber(current);
-    }
-  };
-  read.update = (updater) => {
-    read.set(updater(current));
-  };
-  read.subscribe = (subscriber) => {
-    subscribers.add(subscriber);
-    return () => subscribers.delete(subscriber);
-  };
-  return read;
-};
-const httpFetch = (url) => invoke("controller_http_get_text", { url });
-const bindSignals = (source, onChange) => {
-  const unsubscribers = [];
-  for (const key of Object.keys(source)) {
-    const value = source[key];
-    if (isSignal(value)) {
-      unsubscribers.push(value.subscribe(() => onChange()));
-    }
+var x;
+(function(s) {
+  s.WINDOW_RESIZED = "tauri://resize", s.WINDOW_MOVED = "tauri://move", s.WINDOW_CLOSE_REQUESTED = "tauri://close-requested", s.WINDOW_DESTROYED = "tauri://destroyed", s.WINDOW_FOCUS = "tauri://focus", s.WINDOW_BLUR = "tauri://blur", s.WINDOW_SCALE_FACTOR_CHANGED = "tauri://scale-change", s.WINDOW_THEME_CHANGED = "tauri://theme-changed", s.WINDOW_CREATED = "tauri://window-created", s.WEBVIEW_CREATED = "tauri://webview-created", s.DRAG_ENTER = "tauri://drag-enter", s.DRAG_OVER = "tauri://drag-over", s.DRAG_DROP = "tauri://drag-drop", s.DRAG_LEAVE = "tauri://drag-leave";
+})(x || (x = {}));
+const M = (s) => {
+  if (typeof s != "function")
+    return !1;
+  const t = s;
+  return t._isSignal === !0 && typeof t.set == "function" && typeof t.subscribe == "function";
+}, u = (s) => {
+  let t = s;
+  const i = /* @__PURE__ */ new Set(), e = (() => t);
+  return e._isSignal = !0, e.set = (r) => {
+    t = r;
+    for (const n of i)
+      n(t);
+  }, e.update = (r) => {
+    e.set(r(t));
+  }, e.subscribe = (r) => (i.add(r), () => i.delete(r)), e;
+}, C = (s) => R("controller_http_get_text", { url: s }), T = (s, t) => {
+  const i = [];
+  for (const e of Object.keys(s)) {
+    const r = s[e];
+    M(r) && i.push(r.subscribe(() => t()));
   }
   return () => {
-    for (const unsubscribe of unsubscribers) {
-      unsubscribe();
-    }
+    for (const e of i)
+      e();
   };
-};
-const createScope = (instance, payload) => {
-  return new Proxy(
-    { payload },
-    {
-      get(target, property) {
-        if (typeof property !== "string") {
-          return void 0;
-        }
-        if (property in target) {
-          return target[property];
-        }
-        const value = instance[property];
-        if (typeof value === "function") {
-          return value.bind(instance);
-        }
-        return value;
-      },
-      has(target, property) {
-        if (typeof property !== "string") {
-          return false;
-        }
-        return property in target || property in instance;
-      }
+}, L = (s, t) => new Proxy(
+  { payload: t },
+  {
+    get(i, e) {
+      if (typeof e != "string")
+        return;
+      if (e in i)
+        return i[e];
+      const r = s[e];
+      return typeof r == "function" ? r.bind(s) : r;
+    },
+    has(i, e) {
+      return typeof e != "string" ? !1 : e in i || e in s;
     }
-  );
-};
-const RELATIVE_URL_ATTRIBUTES = ["src", "href", "poster"];
-const PACK_INSTALL_PATH_PLACEHOLDER = "{{pack-install-path}}/";
-const ASSETS_PLACEHOLDER = "{{ASSETS}}";
-const isExternalAssetUrl = (value) => {
-  const trimmed = value.trim();
-  return trimmed.length === 0 || trimmed.startsWith("data:") || trimmed.startsWith("blob:") || trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("file:") || trimmed.startsWith("asset:") || trimmed.startsWith("mailto:") || trimmed.startsWith("tel:") || trimmed.startsWith("javascript:") || trimmed.startsWith("//") || trimmed.startsWith("/") || trimmed.startsWith("#");
-};
-const extractWidgetRelativePath = (value) => {
-  const trimmed = value.trim();
-  if (!trimmed) {
+  }
+), O = ["src", "href", "poster"], F = "{{pack-install-path}}/", b = "{{ASSETS}}", N = (s) => {
+  const t = s.trim();
+  return t.length === 0 || t.startsWith("data:") || t.startsWith("blob:") || t.startsWith("http://") || t.startsWith("https://") || t.startsWith("file:") || t.startsWith("asset:") || t.startsWith("mailto:") || t.startsWith("tel:") || t.startsWith("javascript:") || t.startsWith("//") || t.startsWith("/") || t.startsWith("#");
+}, $ = (s) => {
+  const t = s.trim();
+  if (!t)
     return null;
-  }
-  if (!isExternalAssetUrl(trimmed)) {
-    return trimmed.replace(/^\.\/+/, "").replace(/^\/+/, "");
-  }
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+  if (!N(t))
+    return t.replace(/^\.\/+/, "").replace(/^\/+/, "");
+  if (t.startsWith("http://") || t.startsWith("https://"))
     try {
-      const url = new URL(trimmed);
-      if (url.origin === window.location.origin) {
-        return `${url.pathname}${url.search}${url.hash}`.replace(/^\/+/, "");
-      }
+      const i = new URL(t);
+      if (i.origin === window.location.origin)
+        return `${i.pathname}${i.search}${i.hash}`.replace(/^\/+/, "");
     } catch {
       return null;
     }
-  }
   return null;
-};
-const normalizeJoinedAssetPath = (widgetDirectory, relativePath) => {
-  const normalizedBase = widgetDirectory.replaceAll("\\", "/").replace(/\/+$/, "");
-  const combined = `${normalizedBase}/${relativePath.trim()}`;
-  const segments = combined.split("/");
-  const resolved = [];
-  for (const segment of segments) {
-    if (!segment || segment === ".") {
-      if (resolved.length === 0 && combined.startsWith("/")) {
-        resolved.push("");
-      }
+}, q = (s, t) => {
+  const i = s.replaceAll("\\", "/").replace(/\/+$/, ""), e = `${i}/${t.trim()}`, r = e.split("/"), n = [];
+  for (const a of r) {
+    if (!a || a === ".") {
+      n.length === 0 && e.startsWith("/") && n.push("");
       continue;
     }
-    if (segment === "..") {
-      if (resolved.length > 1 || resolved.length === 1 && resolved[0] !== "") {
-        resolved.pop();
-      }
+    if (a === "..") {
+      (n.length > 1 || n.length === 1 && n[0] !== "") && n.pop();
       continue;
     }
-    resolved.push(segment);
+    n.push(a);
   }
-  return resolved.join("/") || normalizedBase;
-};
-const resolveAssetUrl = (widgetDirectory, value) => {
-  const relativePath = extractWidgetRelativePath(value);
-  if (!widgetDirectory || !relativePath) {
-    return value;
-  }
+  return n.join("/") || i;
+}, f = (s, t) => {
+  const i = $(t);
+  if (!s || !i)
+    return t;
   try {
-    return convertFileSrc(normalizeJoinedAssetPath(widgetDirectory, relativePath));
+    return A(q(s, i));
   } catch {
-    return value;
+    return t;
   }
-};
-const resolveAssetsBaseUrl = (widgetDirectory) => {
-  const normalizedDirectory = widgetDirectory.trim().replaceAll("\\", "/").replace(/\/+$/, "");
-  if (!normalizedDirectory) {
+}, B = (s) => {
+  const t = s.trim().replaceAll("\\", "/").replace(/\/+$/, "");
+  if (!t)
     return "";
-  }
   try {
-    return convertFileSrc(normalizedDirectory);
+    return A(t);
   } catch {
-    return normalizedDirectory;
+    return t;
   }
-};
-const rewriteSrcset = (value, widgetDirectory) => {
-  return value.split(",").map((entry) => {
-    const trimmed = entry.trim();
-    if (!trimmed) {
-      return trimmed;
-    }
-    const [url, descriptor] = trimmed.split(/\s+/, 2);
-    const nextUrl = resolveAssetUrl(widgetDirectory, url);
-    return descriptor ? `${nextUrl} ${descriptor}` : nextUrl;
-  }).join(", ");
-};
-const rewriteInlineStyleUrls = (value, widgetDirectory) => {
-  return value.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, (full, quote, urlValue) => {
-    const nextUrl = resolveAssetUrl(widgetDirectory, urlValue);
-    if (nextUrl === urlValue) {
-      return full;
-    }
-    return `url("${nextUrl}")`;
-  });
-};
-const rewriteElementAssetUrls = (element, widgetDirectory) => {
-  for (const attribute of RELATIVE_URL_ATTRIBUTES) {
-    const currentValue = element.getAttribute(attribute);
-    if (!currentValue) {
+}, P = (s, t) => s.split(",").map((i) => {
+  const e = i.trim();
+  if (!e)
+    return e;
+  const [r, n] = e.split(/\s+/, 2), a = f(t, r);
+  return n ? `${a} ${n}` : a;
+}).join(", "), j = (s, t) => s.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, (i, e, r) => {
+  const n = f(t, r);
+  return n === r ? i : `url("${n}")`;
+}), S = (s, t) => {
+  for (const r of O) {
+    const n = s.getAttribute(r);
+    if (!n)
       continue;
-    }
-    const nextValue = resolveAssetUrl(widgetDirectory, currentValue);
-    if (nextValue !== currentValue) {
-      element.setAttribute(attribute, nextValue);
-    }
+    const a = f(t, n);
+    a !== n && s.setAttribute(r, a);
   }
-  const currentSrcset = element.getAttribute("srcset");
-  if (currentSrcset) {
-    const nextSrcset = rewriteSrcset(currentSrcset, widgetDirectory);
-    if (nextSrcset !== currentSrcset) {
-      element.setAttribute("srcset", nextSrcset);
-    }
+  const i = s.getAttribute("srcset");
+  if (i) {
+    const r = P(i, t);
+    r !== i && s.setAttribute("srcset", r);
   }
-  const currentStyle = element.getAttribute("style");
-  if (currentStyle) {
-    const nextStyle = rewriteInlineStyleUrls(currentStyle, widgetDirectory);
-    if (nextStyle !== currentStyle) {
-      element.setAttribute("style", nextStyle);
-    }
+  const e = s.getAttribute("style");
+  if (e) {
+    const r = j(e, t);
+    r !== e && s.setAttribute("style", r);
   }
-};
-const rewriteTreeAssetUrls = (root, widgetDirectory) => {
-  if (!widgetDirectory) {
-    return;
+}, I = (s, t) => {
+  if (t) {
+    s instanceof Element && S(s, t);
+    for (const i of Array.from(s.querySelectorAll("*")))
+      S(i, t);
   }
-  if (root instanceof Element) {
-    rewriteElementAssetUrls(root, widgetDirectory);
-  }
-  for (const element of Array.from(root.querySelectorAll("*"))) {
-    rewriteElementAssetUrls(element, widgetDirectory);
-  }
-};
-const rewriteInstallPathPlaceholders = (input, widgetDirectory) => {
-  if (!widgetDirectory) {
-    return input;
-  }
-  let output = input;
-  const assetsBaseUrl = resolveAssetsBaseUrl(widgetDirectory);
-  if (assetsBaseUrl && output.includes(ASSETS_PLACEHOLDER)) {
-    output = output.replaceAll(ASSETS_PLACEHOLDER, assetsBaseUrl);
-  }
-  if (!output.includes(PACK_INSTALL_PATH_PLACEHOLDER)) {
-    return output;
-  }
-  return output.replace(/\{\{pack-install-path\}\}\/([^"')\s]+)/g, (full, relativePath) => {
-    return resolveAssetUrl(widgetDirectory, relativePath);
-  });
-};
-const createWidgetClass = (WidgetImpl, options) => {
-  return class RuntimeWidget {
-    constructor({
-      mount,
-      payload,
-      setLoading
-    }) {
-      this.cleanups = [];
-      this.widgetDirectory = "";
-      this.mount = mount;
-      this.payload = payload ?? {};
-      this.setLoading = typeof setLoading === "function" ? setLoading : (() => {
-      });
-      this.assetObserver = new MutationObserver((mutations) => {
-        if (!this.widgetDirectory) {
-          return;
-        }
-        for (const mutation of mutations) {
-          if (mutation.type === "attributes" && mutation.target instanceof Element) {
-            rewriteElementAssetUrls(mutation.target, this.widgetDirectory);
+}, w = (s, t) => {
+  if (!t)
+    return s;
+  let i = s;
+  const e = B(t);
+  return e && i.includes(b) && (i = i.replaceAll(b, e)), i.includes(F) ? i.replace(/\{\{pack-install-path\}\}\/([^"')\s]+)/g, (r, n) => f(t, n)) : i;
+}, z = (s, t) => class {
+  constructor({
+    mount: e,
+    payload: r,
+    setLoading: n
+  }) {
+    this.cleanups = [], this.widgetDirectory = "", this.mount = e, this.payload = r ?? {}, this.setLoading = typeof n == "function" ? n : (() => {
+    }), this.assetObserver = new MutationObserver((a) => {
+      if (this.widgetDirectory)
+        for (const o of a) {
+          if (o.type === "attributes" && o.target instanceof Element) {
+            S(o.target, this.widgetDirectory);
             continue;
           }
-          for (const node of Array.from(mutation.addedNodes)) {
-            if (node instanceof Element) {
-              rewriteTreeAssetUrls(node, this.widgetDirectory);
-            }
-          }
+          for (const c of Array.from(o.addedNodes))
+            c instanceof Element && I(c, this.widgetDirectory);
         }
-      });
-      this.logic = new WidgetImpl({
-        mount,
-        payload: this.payload,
-        setLoading: (loading) => this.setLoading(Boolean(loading)),
-        on: (eventName, selector, handler) => this.on(eventName, selector, handler)
-      });
-      this.cleanupSignalSubscriptions = bindSignals(this.logic, () => this.render());
-      this.assetObserver.observe(this.mount, {
-        subtree: true,
-        childList: true,
-        attributes: true,
-        attributeFilter: ["src", "href", "poster", "srcset", "style"]
-      });
-    }
-    onInit() {
-      this.render();
-      this.logic.onInit?.();
-    }
-    onUpdate(payload) {
-      this.payload = payload ?? {};
-      this.logic.onUpdate?.(this.payload);
-      this.render();
-    }
-    onDestroy() {
-      this.cleanupSignalSubscriptions();
-      while (this.cleanups.length > 0) {
-        const cleanup = this.cleanups.pop();
-        cleanup?.();
-      }
-      this.assetObserver.disconnect();
-      this.logic.onDestroy?.();
-      this.mount.innerHTML = "";
-    }
-    render() {
-      const scope = createScope(this.logic, this.payload);
-      this.widgetDirectory = String(
-        this.payload?.widgetDirectory ?? this.payload?.directory ?? ""
-      ).trim();
-      const finalTemplate = rewriteInstallPathPlaceholders(options.template, this.widgetDirectory);
-      const finalStyles = rewriteInstallPathPlaceholders(options.styles, this.widgetDirectory);
-      const renderTemplate = createTemplateRenderer(finalTemplate);
-      const html = renderTemplate(scope);
-      this.mount.innerHTML = `<style>${finalStyles}</style>${html}`;
-      this.mount.setAttribute("data-displayduck-render-empty", html.trim().length === 0 ? "true" : "false");
-      rewriteTreeAssetUrls(this.mount, this.widgetDirectory);
-      this.logic.afterRender?.();
-    }
-    on(eventName, selector, handler) {
-      const listener = (event) => {
-        const target = event.target;
-        const matched = target?.closest(selector);
-        if (!matched || !this.mount.contains(matched)) {
-          return;
-        }
-        handler(event, matched);
-      };
-      this.mount.addEventListener(eventName, listener);
-      const cleanup = () => this.mount.removeEventListener(eventName, listener);
-      this.cleanups.push(cleanup);
-      return cleanup;
-    }
-  };
+    }), this.logic = new s({
+      mount: e,
+      payload: this.payload,
+      setLoading: (a) => this.setLoading(!!a),
+      on: (a, o, c) => this.on(a, o, c)
+    }), this.cleanupSignalSubscriptions = T(this.logic, () => this.render()), this.assetObserver.observe(this.mount, {
+      subtree: !0,
+      childList: !0,
+      attributes: !0,
+      attributeFilter: ["src", "href", "poster", "srcset", "style"]
+    });
+  }
+  onInit() {
+    this.render(), this.logic.onInit?.();
+  }
+  onUpdate(e) {
+    this.payload = e ?? {}, this.logic.onUpdate?.(this.payload), this.render();
+  }
+  onDestroy() {
+    for (this.cleanupSignalSubscriptions(); this.cleanups.length > 0; )
+      this.cleanups.pop()?.();
+    this.assetObserver.disconnect(), this.logic.onDestroy?.(), this.mount.innerHTML = "";
+  }
+  render() {
+    const e = L(this.logic, this.payload);
+    this.widgetDirectory = String(
+      this.payload?.widgetDirectory ?? this.payload?.directory ?? ""
+    ).trim();
+    const r = w(t.template, this.widgetDirectory), n = w(t.styles, this.widgetDirectory), o = k(r)(e);
+    this.mount.innerHTML = `<style>${n}</style>${o}`, this.mount.setAttribute("data-displayduck-render-empty", o.trim().length === 0 ? "true" : "false"), I(this.mount, this.widgetDirectory), this.logic.afterRender?.();
+  }
+  on(e, r, n) {
+    const a = (c) => {
+      const h = c.target?.closest(r);
+      !h || !this.mount.contains(h) || n(c, h);
+    };
+    this.mount.addEventListener(e, a);
+    const o = () => this.mount.removeEventListener(e, a);
+    return this.cleanups.push(o), o;
+  }
 };
-let DisplayDuckWidget$1 = class DisplayDuckWidget {
-  constructor(ctx) {
-    this.ctx = ctx;
-    this.refreshTimerId = null;
-    this.lastAppliedUrl = "";
-    this.lastAppliedInterval = 0;
-    this.lastAppliedMaxItems = 5;
-    this.lastAppliedSkipItems = 0;
-    this.effectiveInterval = 0;
-    this.effectiveMaxItems = 5;
-    this.effectiveSkipItems = 0;
-    this.showBorder = signal(false);
-    this.feedEntriesState = signal([]);
-    this.errorMessageState = signal(null);
-    this.fetchingState = signal(false);
-    this.payload = ctx.payload ?? {};
-    this.feedEntries = this.feedEntriesState;
-    this.errorMessage = this.errorMessageState;
-    this.fetching = this.fetchingState;
+let H = class {
+  constructor(t) {
+    this.ctx = t, this.refreshTimerId = null, this.lastAppliedUrl = "", this.lastAppliedInterval = 0, this.lastAppliedMaxItems = 5, this.lastAppliedSkipItems = 0, this.effectiveInterval = 0, this.effectiveMaxItems = 5, this.effectiveSkipItems = 0, this.showBorder = u(!1), this.alignment = u("left"), this.feedEntriesState = u([]), this.errorMessageState = u(null), this.fetchingState = u(!1), this.payload = t.payload ?? {}, this.feedEntries = this.feedEntriesState, this.errorMessage = this.errorMessageState, this.fetching = this.fetchingState;
   }
   onInit() {
     this.applyInputs();
   }
-  onUpdate(payload) {
-    this.payload = payload ?? {};
-    this.applyInputs();
+  onUpdate(t) {
+    this.payload = t ?? {}, this.applyInputs();
   }
   onDestroy() {
-    if (this.refreshTimerId) {
-      clearInterval(this.refreshTimerId);
-      this.refreshTimerId = null;
-    }
+    this.refreshTimerId && (clearInterval(this.refreshTimerId), this.refreshTimerId = null);
   }
   entries() {
     return this.feedEntries();
   }
   feedClass() {
-    const count = Math.max(0, Math.min(5, this.entries().length));
-    return `feed-items-${count}`;
+    return `feed-items-${Math.max(0, Math.min(5, this.entries().length))}`;
   }
   showEntries() {
     return !this.errorMessage() && !this.fetching() && this.entries().length > 0;
@@ -483,183 +304,148 @@ let DisplayDuckWidget$1 = class DisplayDuckWidget {
   textBorderEnabled() {
     return this.showBorder();
   }
-  getConfig(key, fallback) {
-    const config = this.payload.config ?? {};
-    return config[key] ?? fallback;
+  alignmentClass() {
+    return `align-${this.alignment()}`;
+  }
+  getConfig(t, i) {
+    return (this.payload.config ?? {})[t] ?? i;
   }
   applyInputs() {
-    const nextUrl = String(this.getConfig("url", "") ?? "").trim();
-    const refreshIntervalCandidate = Number(this.getConfig("refreshInterval", 0));
-    const nextInterval = Number.isFinite(refreshIntervalCandidate) ? Math.max(0, Math.floor(refreshIntervalCandidate)) : 0;
-    const parsedMaxItems = Number(this.getConfig("maxItems", 5));
-    const nextMaxItems = Number.isFinite(parsedMaxItems) ? Math.max(1, Math.min(5, Math.floor(parsedMaxItems))) : 5;
-    const parsedSkipItems = Number(this.getConfig("skipItems", 0));
-    const nextSkipItems = Number.isFinite(parsedSkipItems) ? Math.max(0, Math.floor(parsedSkipItems)) : 0;
-    const nextTextBorder = Boolean(this.getConfig("textBorder", false));
-    this.showBorder.set(nextTextBorder);
-    const changed = nextUrl !== this.lastAppliedUrl || nextInterval !== this.lastAppliedInterval || nextMaxItems !== this.lastAppliedMaxItems || nextSkipItems !== this.lastAppliedSkipItems;
-    if (!changed) {
-      return;
-    }
-    this.lastAppliedUrl = nextUrl;
-    this.lastAppliedInterval = nextInterval;
-    this.lastAppliedMaxItems = nextMaxItems;
-    this.lastAppliedSkipItems = nextSkipItems;
-    this.effectiveInterval = nextInterval;
-    this.effectiveMaxItems = nextMaxItems;
-    this.effectiveSkipItems = nextSkipItems;
-    this.configureRefreshTimer();
-    void this.fetchFeed();
+    const t = String(this.getConfig("url", "") ?? "").trim(), i = Number(this.getConfig("refreshInterval", 0)), e = Number.isFinite(i) ? Math.max(0, Math.floor(i)) : 0, r = Number(this.getConfig("maxItems", 5)), n = Number.isFinite(r) ? Math.max(1, Math.min(5, Math.floor(r))) : 5, a = Number(this.getConfig("skipItems", 0)), o = Number.isFinite(a) ? Math.max(0, Math.floor(a)) : 0, c = !!this.getConfig("textBorder", !1), l = this.readAlignment(this.getConfig("alignment", "left"));
+    this.showBorder.set(c), this.alignment.set(l), (t !== this.lastAppliedUrl || e !== this.lastAppliedInterval || n !== this.lastAppliedMaxItems || o !== this.lastAppliedSkipItems) && (this.lastAppliedUrl = t, this.lastAppliedInterval = e, this.lastAppliedMaxItems = n, this.lastAppliedSkipItems = o, this.effectiveInterval = e, this.effectiveMaxItems = n, this.effectiveSkipItems = o, this.configureRefreshTimer(), this.fetchFeed());
   }
   configureRefreshTimer() {
-    if (this.refreshTimerId) {
-      clearInterval(this.refreshTimerId);
-      this.refreshTimerId = null;
-    }
-    if (this.effectiveInterval <= 0) {
+    if (this.refreshTimerId && (clearInterval(this.refreshTimerId), this.refreshTimerId = null), this.effectiveInterval <= 0)
       return;
-    }
-    const refreshMs = this.effectiveInterval * 6e4;
+    const t = this.effectiveInterval * 6e4;
     this.refreshTimerId = setInterval(() => {
-      void this.fetchFeed();
-    }, refreshMs);
+      this.fetchFeed();
+    }, t);
   }
   async fetchFeed() {
-    const targetUrl = this.lastAppliedUrl;
-    const hasExistingEntries = this.feedEntries().length > 0;
-    if (!targetUrl) {
-      this.updateEntries([]);
-      this.errorMessageState.set("No RSS URL provided");
+    const t = this.lastAppliedUrl, i = this.feedEntries().length > 0;
+    if (!t) {
+      this.updateEntries([]), this.errorMessageState.set("No RSS URL provided");
       return;
     }
     try {
-      new URL(targetUrl);
+      new URL(t);
     } catch {
-      this.updateEntries([]);
-      this.errorMessageState.set("Invalid RSS URL");
+      this.updateEntries([]), this.errorMessageState.set("Invalid RSS URL");
       return;
     }
-    if (!hasExistingEntries) {
-      this.fetchingState.set(true);
-      this.ctx.setLoading(true);
-    }
-    this.errorMessageState.set(null);
+    i || (this.fetchingState.set(!0), this.ctx.setLoading(!0)), this.errorMessageState.set(null);
     try {
-      const text = await httpFetch(targetUrl);
-      const parser = new DOMParser();
-      const xml = parser.parseFromString(text, "text/xml");
-      const channelImageUrl = xml.querySelector("channel > image > url")?.textContent?.trim() ?? "";
-      const items = xml.querySelectorAll("item");
-      const entries = Array.from(items).map((item) => {
-        const title = item.querySelector("title")?.textContent || "";
-        const link = item.querySelector("link")?.textContent || "";
-        const description = item.querySelector("description")?.textContent || "";
-        const pubDate = item.querySelector("pubDate")?.textContent || "";
-        const imageUrl = this.extractItemImageUrl(item, description) || channelImageUrl;
-        return { title, link, description, pubDate, imageUrl };
+      const e = await C(t), n = new DOMParser().parseFromString(e, "text/xml"), a = n.querySelector("channel > image > url")?.textContent?.trim() ?? "", o = n.querySelectorAll("item"), c = Array.from(o).map((l) => {
+        const h = l.querySelector("title")?.textContent || "", m = l.querySelector("link")?.textContent || "", d = l.querySelector("description")?.textContent || "", W = l.querySelector("pubDate")?.textContent || "", _ = this.extractItemImageUrl(l, d) || a;
+        return { title: h, link: m, description: d, pubDate: W, imageUrl: _ };
       }).slice(this.effectiveSkipItems, this.effectiveSkipItems + this.effectiveMaxItems);
-      this.updateEntries(entries);
-    } catch (error) {
-      this.logFeedFetchError(targetUrl, error);
-      if (!hasExistingEntries) {
-        this.updateEntries([]);
-        this.errorMessageState.set(this.buildUserFacingFetchError(error));
-      }
+      this.updateEntries(c);
+    } catch (e) {
+      this.logFeedFetchError(t, e), i || (this.updateEntries([]), this.errorMessageState.set(this.buildUserFacingFetchError(e)));
     } finally {
-      this.fetchingState.set(false);
-      this.ctx.setLoading(false);
+      this.fetchingState.set(!1), this.ctx.setLoading(!1);
     }
   }
-  updateEntries(newEntries) {
-    if (!this.areEntriesEqual(this.feedEntries(), newEntries)) {
-      this.feedEntriesState.set(newEntries);
-    }
+  updateEntries(t) {
+    this.areEntriesEqual(this.feedEntries(), t) || this.feedEntriesState.set(t);
   }
-  areEntriesEqual(current, next) {
-    if (current.length !== next.length) {
-      return false;
+  areEntriesEqual(t, i) {
+    if (t.length !== i.length)
+      return !1;
+    for (let e = 0; e < t.length; e += 1) {
+      const r = t[e], n = i[e];
+      if (r.title !== n.title || r.link !== n.link || r.description !== n.description || r.pubDate !== n.pubDate || r.imageUrl !== n.imageUrl)
+        return !1;
     }
-    for (let index = 0; index < current.length; index += 1) {
-      const left = current[index];
-      const right = next[index];
-      if (left.title !== right.title || left.link !== right.link || left.description !== right.description || left.pubDate !== right.pubDate || left.imageUrl !== right.imageUrl) {
-        return false;
-      }
-    }
-    return true;
+    return !0;
   }
-  logFeedFetchError(targetUrl, error) {
-    const ownProps = error && typeof error === "object" ? Object.getOwnPropertyNames(error) : [];
-    if (error instanceof Error) {
+  logFeedFetchError(t, i) {
+    const e = i && typeof i == "object" ? Object.getOwnPropertyNames(i) : [];
+    if (i instanceof Error) {
       console.error("Failed to fetch RSS feed", {
-        url: targetUrl,
-        message: error.message,
-        name: error.name,
-        stack: error.stack,
-        ownProps,
-        raw: error
+        url: t,
+        message: i.message,
+        name: i.name,
+        stack: i.stack,
+        ownProps: e,
+        raw: i
       });
       return;
     }
     console.error("Failed to fetch RSS feed", {
-      url: targetUrl,
-      ownProps,
-      error
+      url: t,
+      ownProps: e,
+      error: i
     });
   }
-  buildUserFacingFetchError(error) {
-    const base = "Failed to fetch RSS feed";
-    const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
-    if (!message) {
-      return base;
-    }
-    const parenthesizedStatus = message.match(/\((\d{3}\s+[^)]+)\)/);
-    if (parenthesizedStatus?.[1]) {
-      return `${base} (${parenthesizedStatus[1].trim()})`;
-    }
-    const inlineStatus = message.match(/\bHTTP\s+(\d{3}(?:\s+[A-Za-z][A-Za-z\s-]*)?)/i);
-    if (inlineStatus?.[1]) {
-      return `${base} (${inlineStatus[1].trim()})`;
-    }
-    return base;
+  buildUserFacingFetchError(t) {
+    const i = "Failed to fetch RSS feed", e = t instanceof Error ? t.message : typeof t == "string" ? t : "";
+    if (!e)
+      return i;
+    const r = e.match(/\((\d{3}\s+[^)]+)\)/);
+    if (r?.[1])
+      return `${i} (${r[1].trim()})`;
+    const n = e.match(/\bHTTP\s+(\d{3}(?:\s+[A-Za-z][A-Za-z\s-]*)?)/i);
+    return n?.[1] ? `${i} (${n[1].trim()})` : i;
   }
-  extractItemImageUrl(item, description) {
-    const mediaContent = item.querySelector("media\\:content[url], content[url]");
-    const mediaContentUrl = mediaContent?.getAttribute("url")?.trim();
-    if (mediaContentUrl) {
-      return mediaContentUrl;
-    }
-    const mediaThumb = item.querySelector("media\\:thumbnail[url], thumbnail[url]");
-    const mediaThumbUrl = mediaThumb?.getAttribute("url")?.trim();
-    if (mediaThumbUrl) {
-      return mediaThumbUrl;
-    }
-    const itunesImage = item.querySelector("itunes\\:image[href], image[href]");
-    const itunesImageHref = itunesImage?.getAttribute("href")?.trim();
-    if (itunesImageHref) {
-      return itunesImageHref;
-    }
-    const enclosure = item.querySelector("enclosure[url][type]");
-    const enclosureUrl = enclosure?.getAttribute("url")?.trim() ?? "";
-    const enclosureType = enclosure?.getAttribute("type")?.toLowerCase() ?? "";
-    if (enclosureUrl && enclosureType.startsWith("image/")) {
-      return enclosureUrl;
-    }
-    const descriptionImageMatch = description.match(/<img[^>]+src=["']([^"']+)["']/i);
-    if (descriptionImageMatch?.[1]) {
-      return descriptionImageMatch[1];
-    }
-    return "";
+  extractItemImageUrl(t, i) {
+    const r = t.querySelector("media\\:content[url], content[url]")?.getAttribute("url")?.trim();
+    if (r)
+      return r;
+    const a = t.querySelector("media\\:thumbnail[url], thumbnail[url]")?.getAttribute("url")?.trim();
+    if (a)
+      return a;
+    const c = t.querySelector("itunes\\:image[href], image[href]")?.getAttribute("href")?.trim();
+    if (c)
+      return c;
+    const l = t.querySelector("enclosure[url][type]"), h = l?.getAttribute("url")?.trim() ?? "", m = l?.getAttribute("type")?.toLowerCase() ?? "";
+    if (h && m.startsWith("image/"))
+      return h;
+    const d = i.match(/<img[^>]+src=["']([^"']+)["']/i);
+    return d?.[1] ? d[1] : "";
+  }
+  readAlignment(t) {
+    return t === "right" ? "right" : "left";
   }
 };
-const template = '<div class="rss {{ feedClass() }}">\n  {{#if showEntries()}}\n    {{#each entries()}}\n      <div class="feed-item">\n        {{#if this.imageUrl}}\n          <div class="image">\n            <img src="{{ this.imageUrl }}" alt="Feed Image">\n          </div>\n        {{/if}}\n        <div class="item {{#if this.imageUrl}}has-image{{/if}}">\n          <div class="title {{#if textBorderEnabled()}}text-border{{/if}}">{{ this.title }}</div>\n        </div>\n      </div>\n    {{/each}}\n  {{/if}}\n\n  {{#if showFetchingState()}}\n    <div class="status-view">\n      <div class="icon spinner">\n        <i class="fas fa-rss"></i>\n      </div>\n      <div class="message">Loading feed...</div>\n    </div>\n  {{/if}}\n\n  {{#if showErrorState()}}\n    <div class="status-view">\n      <div class="icon">\n        <i class="fas fa-rss"></i>\n      </div>\n      <div class="message">{{ errorMessage() }}</div>\n    </div>\n  {{/if}}\n</div>\n';
-const styles = ".rss {\n  display: flex;\n  flex-direction: column;\n  align-items: stretch;\n  justify-content: center;\n  width: 100%;\n  height: 100%;\n  color: var(--color-text);\n  overflow: hidden;\n  font-size: clamp(0.5em, var(--host-width) / 35, 1em);\n}\n.rss.feed-items-1 .feed-item {\n  height: 100%;\n}\n.rss.feed-items-2 .feed-item {\n  height: 50%;\n}\n.rss.feed-items-3 .feed-item {\n  height: 33%;\n}\n.rss.feed-items-4 .feed-item {\n  height: 25%;\n}\n.rss.feed-items-5 .feed-item {\n  height: 20%;\n}\n.rss .feed-item {\n  display: flex;\n  gap: 0.5em;\n  padding: 0.25em;\n  min-height: 0;\n  overflow: hidden;\n}\n.rss .image {\n  --forced-item-width: calc(var(--host-width, 300px) / 5);\n  width: var(--forced-item-width);\n  min-width: var(--forced-item-width);\n  max-width: var(--forced-item-width);\n  border-radius: 0.25em;\n  overflow: hidden;\n  border: max(0.15em, 5px) solid rgba(255, 255, 255, 0.12);\n}\n.rss .image img {\n  width: 100%;\n  height: 100%;\n  object-fit: cover;\n  object-position: center center;\n  display: block;\n}\n.rss .item {\n  flex: 1 1 auto;\n  min-width: 0;\n  display: flex;\n  align-items: center;\n  overflow: hidden;\n}\n.rss .title {\n  font-size: clamp(1em, var(--host-width) / 25, 1em);\n  line-height: 1.1em;\n  width: 100%;\n  overflow: hidden;\n  display: -webkit-box;\n  line-clamp: 2;\n  -webkit-line-clamp: 2;\n  -webkit-box-orient: vertical;\n}\n.rss .text-border {\n  -webkit-text-stroke: 0.15em;\n  -webkit-text-stroke-color: rgba(0, 0, 0, 0.75);\n  paint-order: stroke fill;\n  padding-left: 0.15em;\n  padding-right: 0.15em;\n}\n.rss .status-view {\n  display: flex;\n  width: 100%;\n  height: 100%;\n  flex-direction: column;\n  justify-content: center;\n  align-items: center;\n  gap: 0.5em;\n  text-align: center;\n}\n.rss .icon {\n  font-size: clamp(2rem, var(--host-width, 300px) / 8, 4rem);\n  opacity: 0.8;\n}\n.rss .spinner {\n  animation: rss-spin 1.2s linear infinite;\n}\n.rss .message {\n  max-width: 90%;\n  font-size: 1rem;\n  line-height: 1.3;\n}\n\n@keyframes rss-spin {\n  from {\n    transform: rotate(0deg);\n  }\n  to {\n    transform: rotate(360deg);\n  }\n}";
-const DisplayDuckWidget2 = createWidgetClass(DisplayDuckWidget$1, { template, styles });
-const Widget = DisplayDuckWidget2;
-const displayduckPackRss_rss_entry = { DisplayDuckWidget: DisplayDuckWidget2, Widget };
+const G = `<div class="rss {{ feedClass() }} {{ alignmentClass() }}">
+  {{#if showEntries()}}
+    {{#each entries()}}
+      <div class="feed-item">
+        {{#if this.imageUrl}}
+          <div class="image">
+            <img src="{{ this.imageUrl }}" alt="Feed Image">
+          </div>
+        {{/if}}
+        <div class="item {{#if this.imageUrl}}has-image{{/if}}">
+          <div class="title {{#if textBorderEnabled()}}text-border{{/if}}">{{ this.title }}</div>
+        </div>
+      </div>
+    {{/each}}
+  {{/if}}
+
+  {{#if showFetchingState()}}
+    <div class="status-view">
+      <div class="icon spinner">
+        <i class="fas fa-rss"></i>
+      </div>
+      <div class="message">Loading feed...</div>
+    </div>
+  {{/if}}
+
+  {{#if showErrorState()}}
+    <div class="status-view">
+      <div class="icon">
+        <i class="fas fa-rss"></i>
+      </div>
+      <div class="message">{{ errorMessage() }}</div>
+    </div>
+  {{/if}}
+</div>
+`, V = ".rss{display:flex;flex-direction:column;align-items:stretch;justify-content:center;width:100%;height:100%;color:var(--color-text);overflow:hidden;font-size:clamp(.5em,var(--host-width) / 35,1em)}.rss.feed-items-1 .feed-item{height:100%}.rss.feed-items-2 .feed-item{height:50%}.rss.feed-items-3 .feed-item{height:33%}.rss.feed-items-4 .feed-item{height:25%}.rss.feed-items-5 .feed-item{height:20%}.rss .feed-item{display:flex;gap:.5em;padding:.25em;min-height:0;overflow:hidden}.rss.align-right .feed-item{flex-direction:row-reverse}.rss .image{--forced-item-width: calc(var(--host-width, 300px) / 5);width:var(--forced-item-width);min-width:var(--forced-item-width);max-width:var(--forced-item-width);border-radius:.25em;overflow:hidden;border:max(.15em,5px) solid rgba(255,255,255,.12)}.rss .image img{width:100%;height:100%;object-fit:cover;object-position:center center;display:block}.rss .item{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:flex-start;overflow:hidden}.rss.align-right .item{justify-content:flex-end}.rss .title{font-size:clamp(1em,var(--host-width) / 25,1em);line-height:1.1em;width:100%;overflow:hidden;display:-webkit-box;line-clamp:2;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-align:left}.rss.align-right .title{text-align:right}.rss .text-border{-webkit-text-stroke:.15em;-webkit-text-stroke-color:rgba(0,0,0,.75);paint-order:stroke fill;padding-left:.15em;padding-right:.15em}.rss .status-view{display:flex;width:100%;height:100%;flex-direction:column;justify-content:center;align-items:center;gap:.5em;text-align:center}.rss .icon{font-size:clamp(2rem,var(--host-width, 300px) / 8,4rem);opacity:.8}.rss .spinner{animation:rss-spin 1.2s linear infinite}.rss .message{max-width:90%;font-size:1rem;line-height:1.3}@keyframes rss-spin{0%{transform:rotate(0)}to{transform:rotate(360deg)}}", E = z(H, { template: G, styles: V }), Z = E, Q = { DisplayDuckWidget: E, Widget: Z };
 export {
-  DisplayDuckWidget2 as DisplayDuckWidget,
-  Widget,
-  displayduckPackRss_rss_entry as default
+  E as DisplayDuckWidget,
+  Z as Widget,
+  Q as default
 };
-//# sourceMappingURL=rss.js.map

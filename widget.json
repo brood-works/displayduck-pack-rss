@@ -46,6 +46,12 @@
           "type": "boolean",
           "defaultValue": false,
           "subLabel": "Adds a border to the text to improve readability on busy backgrounds."
+        },
+        "alignment": {
+            "label": "Alignment",
+            "type": "select",
+            "options": [ "left", "right" ],
+            "defaultValue": "left"
         }
       }
     }
